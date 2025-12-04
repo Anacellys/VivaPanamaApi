@@ -135,5 +135,20 @@ namespace VivaPanamaApi.Controllers
                 return StatusCode(500, "Ocurrió un error al eliminar la Calificación.");
             }
         }
+
+        [HttpGet("promedio/lugar/{idLugar}")]
+        public async Task<ActionResult<object>> PromedioPorLugar(int idLugar)
+        {
+            // Usar el contexto correcto inyectado: applicationDbContext
+            var promedio = await applicationDbContext.Calificaciones
+                .Where(c => c.Id_Lugar == idLugar)
+                .AverageAsync(c => (double?)c.Puntuacion);
+
+            if (promedio == null)
+                return NotFound("No hay calificaciones para este lugar.");
+
+            return Ok(new { Id_Lugar = idLugar, Promedio = promedio });
+        }
+
     }
 }

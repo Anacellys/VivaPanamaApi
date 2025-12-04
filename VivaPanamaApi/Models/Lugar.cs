@@ -2,10 +2,10 @@
 {
     public class Lugar
     {
-        public int IdLugar { get; set; }
-        public string Nombre { get; set; }
-        public string Descripcion { get; set; }
-        public string Provincia { get; set; }
-        public string TipoLugar { get; set; }
+        public int id_Lugar { get; set; }
+        public string mombre { get; set; }
+        public string descripcion { get; set; }
+        public string provincia { get; set; }
+        public string tipo_lugar { get; set; }
     }
 }

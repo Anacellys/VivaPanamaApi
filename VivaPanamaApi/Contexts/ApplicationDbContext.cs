@@ -1,4 +1,5 @@
 ﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.Win32;
 using VivaPanamaApi.Models;
 
 namespace VivaPanamaApi.Contexts  
@@ -9,7 +10,6 @@ namespace VivaPanamaApi.Contexts
             : base(options)
         {
         }
-
         public DbSet<Usuario> Usuarios { get; set; }
         public DbSet<Restaurante> Restaurantes { get; set; }
         public DbSet<Preferencias> Preferencias { get; set; }
@@ -18,5 +18,6 @@ namespace VivaPanamaApi.Contexts
         public DbSet<Actividad> Actividades { get; set; }
         public DbSet<Calificacion> Calificaciones { get; set; }
         public DbSet<Fotos> Fotos { get; set; }
+        public DbSet<registro> Registro { get; set; }
     }
 }
