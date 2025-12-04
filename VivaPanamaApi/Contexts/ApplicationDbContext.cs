@@ -1,17 +1,22 @@
 ﻿using Microsoft.EntityFrameworkCore;
-using System.Collections.Generic;
 using VivaPanamaApi.Models;
 
-namespace VivaPanamaApi.Contexts
+namespace VivaPanamaApi.Contexts  
 {
-    public class ApplicationDbContext : DbContext   // ← Modificación 1: heredar de DbContext
+    public class ApplicationDbContext : DbContext
     {
         public ApplicationDbContext(DbContextOptions<ApplicationDbContext> options)
             : base(options)
         {
         }
 
-        // ← Modificación 2: agregar DbSet para la tabla calificacion
+        public DbSet<Usuario> Usuarios { get; set; }
+        public DbSet<Restaurante> Restaurantes { get; set; }
+        public DbSet<Preferencias> Preferencias { get; set; }
+        public DbSet<Lugar> Lugares { get; set; }
+        public DbSet<HotelHospedaje> HotelHospedajes { get; set; }
+        public DbSet<Actividad> Actividades { get; set; }
         public DbSet<Calificacion> Calificaciones { get; set; }
+        public DbSet<Fotos> Fotos { get; set; }
     }
 }

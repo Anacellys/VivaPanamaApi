@@ -16,14 +16,6 @@ builder.Services.AddSwaggerGen();
 
 var app = builder.Build();
 
-// ----------------------------------------------------
-// 🔹 2. Aplicar migraciones automáticamente (opcional)
-// ----------------------------------------------------
-using (var scope = app.Services.CreateScope())
-{
-    var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-    db.Database.Migrate();  // crea tablas automáticamente si no existen
-}
 
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
