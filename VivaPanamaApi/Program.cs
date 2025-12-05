@@ -1,3 +1,9 @@
+<<<<<<< Updated upstream
+=======
+﻿using Microsoft.EntityFrameworkCore;
+using VivaPanamaApi.Contexts;
+
+>>>>>>> Stashed changes
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
@@ -21,5 +27,9 @@ app.UseHttpsRedirection();
 app.UseAuthorization();
 
 app.MapControllers();
+<<<<<<< Updated upstream
 
 app.Run();
+=======
+app.Run();
+>>>>>>> Stashed changes
