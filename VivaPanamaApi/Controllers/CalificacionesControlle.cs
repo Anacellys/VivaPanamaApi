@@ -1,6 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using VivaPanamaApi.Contexts;
+using VivaPanamaApi.Data;
 using VivaPanamaApi.Models;
 
 namespace VivaPanamaApi.Controllers
@@ -9,26 +9,26 @@ namespace VivaPanamaApi.Controllers
     [Route("api/[controller]")]
     public class CalificacionesController : ControllerBase
     {
-        private readonly ApplicationDbContext applicationDbContext;
+        private readonly AppDbContext _context;
 
-        public CalificacionesController(ApplicationDbContext applicationDbContext)
+        public CalificacionesController(AppDbContext context) // O ApplicationDbContext
         {
-            this.applicationDbContext = applicationDbContext;
+            _context = context;
         }
 
         // GET: api/Calificaciones
         [HttpGet]
         public async Task<ActionResult<List<Calificacion>>> GetCalificaciones()
         {
-            return await applicationDbContext.Calificaciones.ToListAsync();
+            return await _context.calificacion.ToListAsync();
         }
 
         // GET: api/Calificaciones/5
         [HttpGet("{id}")]
         public async Task<ActionResult<Calificacion>> GetCalificacion(int id)
         {
-            var calificacion = await applicationDbContext.Calificaciones
-                .FirstOrDefaultAsync(c => c.Id_Calificacion == id);
+            var calificacion = await _context.calificacion
+                .FirstOrDefaultAsync(c => c.id_calificacion == id);
 
             if (calificacion == null)
             {
@@ -47,18 +47,54 @@ namespace VivaPanamaApi.Controllers
                 return BadRequest(ModelState);
             }
 
+            // Asignar fecha actual si no viene
+            if (calificacion.fecha_calificacion == default)
+            {
+                calificacion.fecha_calificacion = DateTime.UtcNow;
+            }
+
+            // Validar que el usuario existe
+            var usuarioExiste = await _context.Usuario
+                .AnyAsync(u => u.id_usuario == calificacion.id_usuario);
+
+            if (!usuarioExiste)
+            {
+                return BadRequest("El usuario no existe");
+            }
+
+            // Validar que la entidad calificada existe según su tipo
+            bool entidadExiste = calificacion.tipo_entidad switch
+            {
+                "lugar" => await _context.lugar.AnyAsync(l => l.id_Lugar == calificacion.id_entidad),
+                "hotel" => await _context.hotel.AnyAsync(h => h.id_hotel == calificacion.id_entidad),
+                "restaurante" => await _context.restaurante.AnyAsync(r => r.id_restaurante == calificacion.id_entidad),
+                "actividad" => await _context.actividad_lugar.AnyAsync(a => a.id_actividad == calificacion.id_entidad),
+                _ => false
+            };
+
+            if (!entidadExiste)
+            {
+                return BadRequest($"La entidad de tipo '{calificacion.tipo_entidad}' con ID {calificacion.id_entidad} no existe");
+            }
+
+            // Validar que la puntuación esté entre 1 y 5
+            if (calificacion.puntuacion < 1 || calificacion.puntuacion > 5)
+            {
+                return BadRequest("La puntuación debe estar entre 1 y 5");
+            }
+
             try
             {
-                applicationDbContext.Calificaciones.Add(calificacion);
-                await applicationDbContext.SaveChangesAsync();
+                _context.calificacion.Add(calificacion);
+                await _context.SaveChangesAsync();
 
                 return CreatedAtAction(nameof(GetCalificacion),
-                    new { id = calificacion.Id_Calificacion },
+                    new { id = calificacion.id_calificacion },
                     calificacion);
             }
-            catch (DbUpdateException)
+            catch (DbUpdateException ex)
             {
-                return StatusCode(500, "Ocurrió un error al crear la Calificación.");
+                return StatusCode(500, $"Ocurrió un error al crear la Calificación: {ex.Message}");
             }
         }
 
@@ -66,7 +102,7 @@ namespace VivaPanamaApi.Controllers
         [HttpPut("{id}")]
         public async Task<IActionResult> UpdateCalificacion(int id, Calificacion calificacion)
         {
-            if (id != calificacion.Id_Calificacion)
+            if (id != calificacion.id_calificacion)
             {
                 return BadRequest("El id de la ruta no coincide con el id del cuerpo.");
             }
@@ -76,39 +112,41 @@ namespace VivaPanamaApi.Controllers
                 return BadRequest(ModelState);
             }
 
-            var existing = await applicationDbContext.Calificaciones
-                .FirstOrDefaultAsync(c => c.Id_Calificacion == id);
+            var existing = await _context.calificacion
+                .FirstOrDefaultAsync(c => c.id_calificacion == id);
 
             if (existing == null)
             {
                 return NotFound();
             }
 
+            // Validar que la puntuación esté entre 1 y 5
+            if (calificacion.puntuacion < 1 || calificacion.puntuacion > 5)
+            {
+                return BadRequest("La puntuación debe estar entre 1 y 5");
+            }
+
             // Actualizar campos permitidos
-            existing.Puntuacion = calificacion.Puntuacion;
-            existing.Comentario = calificacion.Comentario;
-            existing.Id_Usuario = calificacion.Id_Usuario;
-            existing.Id_Lugar = calificacion.Id_Lugar;
-            existing.Fecha = calificacion.Fecha;
+            existing.puntuacion = calificacion.puntuacion;
+            existing.comentario = calificacion.comentario;
+            existing.fecha_calificacion = calificacion.fecha_calificacion;
 
             try
             {
-                await applicationDbContext.SaveChangesAsync();
+                await _context.SaveChangesAsync();
                 return NoContent();
             }
             catch (DbUpdateConcurrencyException)
             {
-                if (!await applicationDbContext.Calificaciones
-                    .AnyAsync(e => e.Id_Calificacion == id))
+                if (!await _context.calificacion.AnyAsync(e => e.id_calificacion == id))
                 {
                     return NotFound();
                 }
-
                 throw;
             }
-            catch (DbUpdateException)
+            catch (DbUpdateException ex)
             {
-                return StatusCode(500, "Ocurrió un error al actualizar la Calificación.");
+                return StatusCode(500, $"Ocurrió un error al actualizar la Calificación: {ex.Message}");
             }
         }
 
@@ -116,8 +154,8 @@ namespace VivaPanamaApi.Controllers
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteCalificacion(int id)
         {
-            var calificacion = await applicationDbContext.Calificaciones
-                .FirstOrDefaultAsync(c => c.Id_Calificacion == id);
+            var calificacion = await _context.calificacion
+                .FirstOrDefaultAsync(c => c.id_calificacion == id);
 
             if (calificacion == null)
             {
@@ -126,29 +164,132 @@ namespace VivaPanamaApi.Controllers
 
             try
             {
-                applicationDbContext.Calificaciones.Remove(calificacion);
-                await applicationDbContext.SaveChangesAsync();
+                _context.calificacion.Remove(calificacion);
+                await _context.SaveChangesAsync();
                 return NoContent();
             }
-            catch (DbUpdateException)
+            catch (DbUpdateException ex)
             {
-                return StatusCode(500, "Ocurrió un error al eliminar la Calificación.");
+                return StatusCode(500, $"Ocurrió un error al eliminar la Calificación: {ex.Message}");
             }
         }
 
-        [HttpGet("promedio/lugar/{idLugar}")]
-        public async Task<ActionResult<object>> PromedioPorLugar(int idLugar)
+        // GET: api/Calificaciones/usuario/5
+        [HttpGet("usuario/{idUsuario}")]
+        public async Task<ActionResult<List<Calificacion>>> GetCalificacionesPorUsuario(int idUsuario)
         {
-            // Usar el contexto correcto inyectado: applicationDbContext
-            var promedio = await applicationDbContext.Calificaciones
-                .Where(c => c.Id_Lugar == idLugar)
-                .AverageAsync(c => (double?)c.Puntuacion);
+            var calificaciones = await _context.calificacion
+                .Where(c => c.id_usuario == idUsuario)
+                .ToListAsync();
 
-            if (promedio == null)
-                return NotFound("No hay calificaciones para este lugar.");
+            if (!calificaciones.Any())
+            {
+                return NotFound($"No hay calificaciones para el usuario con ID {idUsuario}");
+            }
 
-            return Ok(new { Id_Lugar = idLugar, Promedio = promedio });
+            return Ok(calificaciones);
         }
 
+        // GET: api/Calificaciones/entidad/lugar/5
+        [HttpGet("entidad/{tipoEntidad}/{idEntidad}")]
+        public async Task<ActionResult<List<Calificacion>>> GetCalificacionesPorEntidad(string tipoEntidad, int idEntidad)
+        {
+            // Validar tipo de entidad
+            string[] tiposValidos = { "lugar", "hotel", "restaurante", "actividad" };
+            if (!tiposValidos.Contains(tipoEntidad.ToLower()))
+            {
+                return BadRequest($"Tipo de entidad '{tipoEntidad}' no válido. Tipos válidos: {string.Join(", ", tiposValidos)}");
+            }
+
+            var calificaciones = await _context.calificacion
+                .Where(c => c.tipo_entidad == tipoEntidad && c.id_entidad == idEntidad)
+                .ToListAsync();
+
+            if (!calificaciones.Any())
+            {
+                return NotFound($"No hay calificaciones para la entidad {tipoEntidad} con ID {idEntidad}");
+            }
+
+            return Ok(calificaciones);
+        }
+
+        // GET: api/Calificaciones/promedio/entidad/lugar/5
+        [HttpGet("promedio/entidad/{tipoEntidad}/{idEntidad}")]
+        public async Task<ActionResult<object>> GetPromedioPorEntidad(string tipoEntidad, int idEntidad)
+        {
+            // Validar tipo de entidad
+            string[] tiposValidos = { "lugar", "hotel", "restaurante", "actividad" };
+            if (!tiposValidos.Contains(tipoEntidad.ToLower()))
+            {
+                return BadRequest($"Tipo de entidad '{tipoEntidad}' no válido. Tipos válidos: {string.Join(", ", tiposValidos)}");
+            }
+
+            var promedio = await _context.calificacion
+                .Where(c => c.tipo_entidad == tipoEntidad && c.id_entidad == idEntidad)
+                .AverageAsync(c => (double?)c.puntuacion);
+
+            if (promedio == null)
+            {
+                return NotFound($"No hay calificaciones para la entidad {tipoEntidad} con ID {idEntidad}");
+            }
+
+            // Contar cuántas calificaciones hay
+            var cantidad = await _context.calificacion
+                .Where(c => c.tipo_entidad == tipoEntidad && c.id_entidad == idEntidad)
+                .CountAsync();
+
+            return Ok(new
+            {
+                Tipo_Entidad = tipoEntidad,
+                Id_Entidad = idEntidad,
+                Promedio = Math.Round(promedio.Value, 2),
+                Cantidad_Calificaciones = cantidad
+            });
+        }
+
+        // GET: api/Calificaciones/resumen/usuario/5
+        [HttpGet("resumen/usuario/{idUsuario}")]
+        public async Task<ActionResult<object>> GetResumenCalificacionesUsuario(int idUsuario)
+        {
+            // Verificar que el usuario existe
+            var usuarioExiste = await _context.Usuario.AnyAsync(u => u.id_usuario == idUsuario);
+            if (!usuarioExiste)
+            {
+                return NotFound($"Usuario con ID {idUsuario} no encontrado");
+            }
+
+            var calificaciones = await _context.calificacion
+                .Where(c => c.id_usuario == idUsuario)
+                .ToListAsync();
+
+            var resumen = new
+            {
+                Usuario_Id = idUsuario,
+                Total_Calificaciones = calificaciones.Count,
+                Por_Tipo_Entidad = calificaciones
+                    .GroupBy(c => c.tipo_entidad)
+                    .Select(g => new
+                    {
+                        Tipo_Entidad = g.Key,
+                        Cantidad = g.Count(),
+                        Promedio = Math.Round(g.Average(c => c.puntuacion), 2)
+                    })
+                    .ToList(),
+                Ultimas_Calificaciones = calificaciones
+                    .OrderByDescending(c => c.fecha_calificacion)
+                    .Take(5)
+                    .Select(c => new
+                    {
+                        c.id_calificacion,
+                        c.tipo_entidad,
+                        c.id_entidad,
+                        c.puntuacion,
+                        c.fecha_calificacion
+                    })
+                    .ToList()
+            };
+
+            return Ok(resumen);
+        }
     }
 }

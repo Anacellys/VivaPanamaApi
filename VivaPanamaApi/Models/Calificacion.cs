@@ -1,20 +1,26 @@
-﻿namespace VivaPanamaApi.Models
+﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
+
+namespace VivaPanamaApi.Models
 {
     public class Calificacion
     {
-        public int Id_Calificacion { get; set; }
+        [Key]
+        public int id_calificacion { get; set; }
 
-        public int Id_Usuario { get; set; }
+        [ForeignKey("usuario")]
+        public int id_usuario { get; set; }
 
-        public int Id_Lugar { get; set; }
+        public string tipo_entidad { get; set; } = string.Empty;
 
-        public int Puntuacion { get; set; }
+        public int id_entidad { get; set; }
 
-        public string? Comentario { get; set; }
+        public int puntuacion { get; set; }
 
-        public DateTime? Fecha { get; set; }
+        public string? comentario { get; set; }
 
-        public Usuario? Usuario { get; set; }
-        public Lugar? Lugar { get; set; }
+        public DateTime? fecha_calificacion { get; set; }
+
+        public Usuario? usuario { get; set; }
     }
 }

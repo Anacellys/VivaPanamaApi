@@ -1,7 +1,10 @@
-﻿namespace VivaPanamaApi.Models
+﻿using System.ComponentModel.DataAnnotations;
+
+namespace VivaPanamaApi.Models
 {
     public class Lugar
     {
+        [Key]
         public int id_Lugar { get; set; }
         public string mombre { get; set; }
         public string descripcion { get; set; }

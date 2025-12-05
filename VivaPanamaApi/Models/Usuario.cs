@@ -1,11 +1,14 @@
-﻿namespace VivaPanamaApi.Models
+﻿using System.ComponentModel.DataAnnotations;
+
+namespace VivaPanamaApi.Models
 {
     public class Usuario
     {
-        public int IdUsuario { get; set; }
-        public string Nombre { get; set; }
-        public string CedulaPasaporte { get; set; }
-        public int  Edad { get; set; }
-        public string Email { get; set; }
+        [Key]
+        public int id_usuario { get; set; }
+        public string nombre_usuario { get; set; }
+        public string cedula_pasaporte { get; set; }
+        public int? edad_usuario { get; set; }
+        public string email_usuario { get; set; }
     }
 }
