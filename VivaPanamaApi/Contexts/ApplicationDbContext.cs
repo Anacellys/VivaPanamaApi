@@ -1,6 +1,5 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using VivaPanamaApi.Models;
-using static System.Net.Mime.MediaTypeNames;
 
 namespace VivaPanamaApi.Data
 {
@@ -9,8 +8,6 @@ namespace VivaPanamaApi.Data
         public AppDbContext(DbContextOptions<AppDbContext> options) : base(options)
         {
         }
-
-        // DbSets usando nombres exactos de tablas
         public DbSet<Usuario> Usuario { get; set; }
         public DbSet<Lugar> lugar { get; set; }
         public DbSet<imagen> imagen { get; set; }
@@ -31,10 +28,42 @@ namespace VivaPanamaApi.Data
         {
             base.OnModelCreating(modelBuilder);
 
-            // Tablas
+        
             modelBuilder.Entity<Usuario>().ToTable("usuario");
+
+            modelBuilder.Entity<Usuario>()
+                .Property(u => u.nombre_usuario)
+                .IsRequired();
+
+            modelBuilder.Entity<Usuario>()
+                .Property(u => u.password)
+                .IsRequired();
+
+            modelBuilder.Entity<Usuario>()
+                .Property(u => u.tipo_usuario)
+                .IsRequired()
+                .HasDefaultValue("cliente");
+
+            
+            modelBuilder.Entity<Usuario>()
+                .HasIndex(u => u.nombre_usuario)
+                .IsUnique();
+
+            
             modelBuilder.Entity<Lugar>().ToTable("lugar");
-            modelBuilder.Entity<registro>().ToTable("registro");
+            modelBuilder.Entity<imagen>().ToTable("imagen");
+            modelBuilder.Entity<Hotel>().ToTable("hotel");
+            modelBuilder.Entity<Restaurante>().ToTable("restaurante");
+            modelBuilder.Entity<ActividadLugar>().ToTable("actividad_lugar");
+            modelBuilder.Entity<Itinerario>().ToTable("itinerario");
+            modelBuilder.Entity<DiaItinerario>().ToTable("dia_itinerario");
+            modelBuilder.Entity<ActividadItinerario>().ToTable("actividad_itinerario");
+            modelBuilder.Entity<HotelItinerario>().ToTable("hotel_itinerario");
+            modelBuilder.Entity<RestauranteItinerario>().ToTable("restaurante_itinerario");
+            modelBuilder.Entity<LugarItinerario>().ToTable("lugar_itinerario");
+            modelBuilder.Entity<PreferenciasUsuario>().ToTable("preferencias_usuario");
+            modelBuilder.Entity<Calificacion>().ToTable("calificacion");
+            modelBuilder.Entity<Favorito>().ToTable("favorito");
 
             // Relaciones
             modelBuilder.Entity<Hotel>()
@@ -57,23 +86,10 @@ namespace VivaPanamaApi.Data
                 .WithMany()
                 .HasForeignKey(i => i.id_usuario);
 
-            modelBuilder.Entity<registro>()
-                .HasOne(r => r.Usuario)
-                .WithMany()
-                .HasForeignKey(r => r.Id_Usuario)
-                .HasConstraintName("FK_Registro_Usuario");
-
-            modelBuilder.Entity<registro>()
-                .HasOne(r => r.Lugar)
-                .WithMany()
-                .HasForeignKey(r => r.Id_Lugar)
-                .HasConstraintName("FK_Registro_Lugar");
-
             modelBuilder.Entity<Itinerario>()
                 .HasMany(i => i.Dias)
                 .WithOne(d => d.Itinerario)
                 .OnDelete(DeleteBehavior.Cascade);
         }
-
     }
 }
