@@ -179,7 +179,9 @@ namespace VivaPanamaApi.Controllers
             var lugarExiste = await _context.lugar.AnyAsync(l => l.id_Lugar == hotel.id_lugar);
             if (!lugarExiste)
             {
-                return BadRequest("El lugar especificado no existe");
+                _context.lugar.Add(hotel.Lugar);
+                await _context.SaveChangesAsync();
+                hotel.id_lugar = hotel.Lugar.id_Lugar;
             }
 
             _context.hotel.Add(hotel);
