@@ -61,8 +61,8 @@ namespace VivaPanamaApi.Controllers
                     h.telefono_hotel,
                     Lugar = new
                     {
-                        h.Lugar.id_Lugar,
-                        h.Lugar.mombre,
+                        h.Lugar.id_lugar,
+                        h.Lugar.nombre,
                         h.Lugar.provincia
                     },
                     Imagenes = _context.imagen
@@ -153,8 +153,8 @@ namespace VivaPanamaApi.Controllers
                     hotel.telefono_hotel,
                     Lugar = new
                     {
-                        hotel.Lugar.id_Lugar,
-                        hotel.Lugar.mombre,
+                        hotel.Lugar.id_lugar,
+                        hotel.Lugar.nombre,
                         hotel.Lugar.descripcion,
                         hotel.Lugar.provincia,
                         hotel.Lugar.tipo_lugar
@@ -176,12 +176,12 @@ namespace VivaPanamaApi.Controllers
         public async Task<ActionResult<Hotel>> PostHotel(Hotel hotel)
         {
             // Validar que el lugar existe
-            var lugarExiste = await _context.lugar.AnyAsync(l => l.id_Lugar == hotel.id_lugar);
+            var lugarExiste = await _context.lugar.AnyAsync(l => l.id_lugar == hotel.id_lugar);
             if (!lugarExiste)
             {
                 _context.lugar.Add(hotel.Lugar);
                 await _context.SaveChangesAsync();
-                hotel.id_lugar = hotel.Lugar.id_Lugar;
+                hotel.id_lugar = hotel.Lugar.id_lugar;
             }
 
             _context.hotel.Add(hotel);
@@ -249,7 +249,7 @@ namespace VivaPanamaApi.Controllers
                 .Include(h => h.Lugar)
                 .Where(h => h.nombre_hotel.Contains(q) ||
                            h.descripcion_hotel.Contains(q) ||
-                           h.Lugar.mombre.Contains(q) ||
+                           h.Lugar.nombre.Contains(q) ||
                            h.Lugar.provincia.Contains(q))
                 .Select(h => new
                 {
@@ -259,7 +259,7 @@ namespace VivaPanamaApi.Controllers
                     h.calificacion_promedio,
                     Lugar = new
                     {
-                        h.Lugar.mombre,
+                        h.Lugar.nombre,
                         h.Lugar.provincia
                     },
                     Imagen = _context.imagen

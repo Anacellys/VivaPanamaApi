@@ -8,6 +8,7 @@ namespace VivaPanamaApi.Data
         public AppDbContext(DbContextOptions<AppDbContext> options) : base(options)
         {
         }
+        public DbSet<Actividad> actividad { get; set; }
         public DbSet<Usuario> Usuario { get; set; }
         public DbSet<Lugar> lugar { get; set; }
         public DbSet<imagen> imagen { get; set; }
@@ -87,6 +88,13 @@ namespace VivaPanamaApi.Data
                 .HasMany(i => i.Dias)
                 .WithOne(d => d.Itinerario)
                 .OnDelete(DeleteBehavior.Cascade);
+            modelBuilder.Entity<Actividad>().ToTable("actividad");
+
+            modelBuilder.Entity<Actividad>()
+                .HasOne(a => a.Lugar)
+                .WithMany()
+                .HasForeignKey(a => a.id_lugar);
+
         }
     }
 }

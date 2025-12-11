@@ -70,8 +70,8 @@ namespace VivaPanamaApi.Controllers
                     r.horario_cierre,
                     Lugar = new
                     {
-                        r.Lugar.id_Lugar,
-                        r.Lugar.mombre,
+                        r.Lugar.id_lugar,
+                        r.Lugar.nombre,
                         r.Lugar.provincia
                     },
                     ImagenPrincipal = _context.imagen
@@ -162,8 +162,8 @@ namespace VivaPanamaApi.Controllers
                     Horario_Cierre = restaurante.horario_cierre,
                     Lugar = new
                     {
-                        restaurante.Lugar.id_Lugar,
-                        restaurante.Lugar.mombre,
+                        restaurante.Lugar.id_lugar,
+                        restaurante.Lugar.nombre,
                         restaurante.Lugar.descripcion,
                         restaurante.Lugar.provincia
                     }
@@ -201,7 +201,7 @@ namespace VivaPanamaApi.Controllers
             }
 
             // Validar que el lugar existe
-            var lugarExiste = await _context.lugar.AnyAsync(l => l.id_Lugar == restaurante.id_lugar);
+            var lugarExiste = await _context.lugar.AnyAsync(l => l.id_lugar == restaurante.id_lugar);
             if (!lugarExiste)
             {
                 return BadRequest("El lugar especificado no existe");
@@ -339,7 +339,7 @@ namespace VivaPanamaApi.Controllers
                 {
                     restaurante.id_restaurante,
                     restaurante.nombre_restaurante,
-                    Lugar = restaurante.Lugar.mombre
+                    Lugar = restaurante.Lugar.nombre
                 },
                 Imagenes_Eliminadas = imagenes.Count
             });
@@ -383,7 +383,7 @@ namespace VivaPanamaApi.Controllers
 
             return Ok(new
             {
-                Lugar = new { lugar.id_Lugar, lugar.mombre, lugar.provincia},
+                Lugar = new { lugar.id_lugar, lugar.nombre, lugar.provincia},
                 Total_Restaurantes = restaurantes.Count,
                 Restaurantes = restaurantes
             });
@@ -403,7 +403,7 @@ namespace VivaPanamaApi.Controllers
                 .Where(r => r.nombre_restaurante.Contains(q) ||
                            r.descripcion_restaurante.Contains(q) ||
                            r.tipo_cocina_restaurante.Contains(q) ||
-                           r.Lugar.mombre.Contains(q))
+                           r.Lugar.nombre.Contains(q))
                 .Select(r => new
                 {
                     r.id_restaurante,
@@ -411,7 +411,7 @@ namespace VivaPanamaApi.Controllers
                     r.tipo_cocina_restaurante,
                     r.precio_promedio,
                     r.calificacion_promedio,
-                    Lugar = r.Lugar.mombre,
+                    Lugar = r.Lugar.nombre,
                     Provincia = r.Lugar.provincia,
                     Imagen = _context.imagen
                         .Where(i => i.tipo_entidad == "restaurante" &&
@@ -447,7 +447,7 @@ namespace VivaPanamaApi.Controllers
                     r.calificacion_promedio,
                     Lugar = new
                     {
-                        r.Lugar.mombre,
+                        r.Lugar.nombre,
                         r.Lugar.provincia
                     },
                     Imagen = _context.imagen
@@ -492,7 +492,7 @@ namespace VivaPanamaApi.Controllers
                     r.tipo_cocina_restaurante,
                     r.precio_promedio,
                     r.calificacion_promedio,
-                    Lugar = r.Lugar.mombre,
+                    Lugar = r.Lugar.nombre,
                     Total_Resenas = _context.calificacion
                         .Count(c => c.tipo_entidad == "restaurante" && c.id_entidad == r.id_restaurante),
                     Imagen = _context.imagen
@@ -535,7 +535,7 @@ namespace VivaPanamaApi.Controllers
                     r.calificacion_promedio,
                     Nivel_Precio = r.precio_promedio < 20 ? "Económico" :
                                   r.precio_promedio < 50 ? "Moderado" : "Alto",
-                    Lugar = r.Lugar.mombre,
+                    Lugar = r.Lugar.nombre,
                     Imagen = _context.imagen
                         .Where(i => i.tipo_entidad == "restaurante" &&
                                    i.id_entidad == r.id_restaurante &&

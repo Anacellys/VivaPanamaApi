@@ -65,7 +65,7 @@ namespace VivaPanamaApi.Controllers
             // Validar que la entidad calificada existe según su tipo
             bool entidadExiste = calificacion.tipo_entidad switch
             {
-                "lugar" => await _context.lugar.AnyAsync(l => l.id_Lugar == calificacion.id_entidad),
+                "lugar" => await _context.lugar.AnyAsync(l => l.id_lugar == calificacion.id_entidad),
                 "hotel" => await _context.hotel.AnyAsync(h => h.id_hotel == calificacion.id_entidad),
                 "restaurante" => await _context.restaurante.AnyAsync(r => r.id_restaurante == calificacion.id_entidad),
                 "actividad" => await _context.actividad_lugar.AnyAsync(a => a.id_actividad == calificacion.id_entidad),
