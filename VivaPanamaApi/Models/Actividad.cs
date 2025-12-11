@@ -20,6 +20,8 @@ namespace VivaPanamaApi.Models
         public string horario { get; set; }
 
         public string disponibilidad { get; set; }
+        public string? imagen_url { get; set; }
+
         public Lugar Lugar { get; set; }
 
     }

@@ -32,17 +32,22 @@ namespace VivaPanamaApi.Controllers
                     a.costo,
                     a.horario,
                     a.disponibilidad,
+
                     Lugar = new
                     {
                         a.Lugar.id_lugar,
                         a.Lugar.nombre,
                         a.Lugar.provincia
-                    }
+                    },
+
+                    // 👇 NUEVA IMAGEN
+                    Imagen = a.imagen_url
                 })
                 .ToListAsync();
 
             return Ok(actividades);
         }
+
 
         // ============================================================
         // GET: api/Actividades/{id}
@@ -78,9 +83,11 @@ namespace VivaPanamaApi.Controllers
             if (string.IsNullOrWhiteSpace(actividad.nombre))
                 return BadRequest("El nombre es obligatorio.");
 
-            var lugar = await _context.lugar.FindAsync(actividad.id_lugar);
-            if (lugar == null)
-                return BadRequest("El lugar no existe.");
+            // Imagen opcional → si viene vacía, asignamos un placeholder
+            if (string.IsNullOrWhiteSpace(actividad.imagen_url))
+            {
+                actividad.imagen_url = "https://i.imgur.com/NT2F1gr.png"; // 🔹 placeholder default
+            }
 
             _context.actividad.Add(actividad);
             await _context.SaveChangesAsync();
@@ -88,9 +95,20 @@ namespace VivaPanamaApi.Controllers
             return Ok(new
             {
                 Mensaje = "Actividad creada exitosamente",
-                Actividad = actividad
+                Actividad = new
+                {
+                    actividad.id_actividad,
+                    actividad.nombre,
+                    actividad.descripcion,
+                    actividad.costo,
+                    actividad.horario,
+                    actividad.disponibilidad,
+                    actividad.id_lugar,
+                    actividad.imagen_url
+                }
             });
         }
+
 
         // ============================================================
         // PUT: api/Actividades/{id}
@@ -98,13 +116,11 @@ namespace VivaPanamaApi.Controllers
         [HttpPut("{id}")]
         public async Task<ActionResult> PutActividad(int id, Actividad actividad)
         {
-            if (id != actividad.id_actividad)
-                return BadRequest("ID no coincide.");
-
             var existente = await _context.actividad.FindAsync(id);
             if (existente == null)
                 return NotFound("Actividad no encontrada.");
 
+            // Actualizar valores
             existente.nombre = actividad.nombre;
             existente.descripcion = actividad.descripcion;
             existente.costo = actividad.costo;
@@ -112,14 +128,29 @@ namespace VivaPanamaApi.Controllers
             existente.disponibilidad = actividad.disponibilidad;
             existente.id_lugar = actividad.id_lugar;
 
+            // Imagen opcional
+            if (!string.IsNullOrWhiteSpace(actividad.imagen_url))
+                existente.imagen_url = actividad.imagen_url;
+
             await _context.SaveChangesAsync();
 
             return Ok(new
             {
                 Mensaje = "Actividad actualizada",
-                Actividad = existente
+                Actividad = new
+                {
+                    existente.id_actividad,
+                    existente.nombre,
+                    existente.descripcion,
+                    existente.costo,
+                    existente.horario,
+                    existente.disponibilidad,
+                    existente.id_lugar,
+                    existente.imagen_url
+                }
             });
         }
+
 
         // ============================================================
         // DELETE: api/Actividades/{id}
