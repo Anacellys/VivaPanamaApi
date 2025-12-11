@@ -122,7 +122,7 @@ namespace VivaPanamaApi.Controllers
                 .ToListAsync();
 
             // Obtener calificaciones
-            var calificaciones = await _context.calificacion
+            var calificaciones = await _context.calificacion    
                 .Where(c => c.tipo_entidad == "restaurante" && c.id_entidad == id)
                 .Include(c => c.usuario)
                 .Select(c => new
@@ -131,7 +131,7 @@ namespace VivaPanamaApi.Controllers
                     c.puntuacion,
                     c.comentario,
                     c.fecha_calificacion,
-                    Usuario = new { c.usuario.nombre_usuario }
+                    Usuario = new { c.usuario.nombre }
                 })
                 .OrderByDescending(c => c.fecha_calificacion)
                 .Take(10)

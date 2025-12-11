@@ -2,7 +2,7 @@
 using Microsoft.EntityFrameworkCore;
 using VivaPanamaApi.Data;
 using VivaPanamaApi.Models;
-using BCrypt.Net; // Necesitarás instalar el paquete BCrypt.Net-Next
+using BCrypt.Net;
 
 namespace VivaPanamaApi.Controllers
 {
@@ -17,202 +17,137 @@ namespace VivaPanamaApi.Controllers
             _context = context;
         }
 
-        // =======================
-        // POST: api/Usuarios/Login
-        // =======================
+        // ==========================================================
+        // POST: api/Usuarios/login
+        // ==========================================================
         [HttpPost("login")]
-        public async Task<ActionResult> Login([FromBody] LoginModel login)
+        public async Task<IActionResult> Login([FromBody] LoginModel login)
         {
-            if (login == null || string.IsNullOrEmpty(login.nombre_usuario) || string.IsNullOrEmpty(login.password))
-            {
-                return BadRequest("Nombre de usuario y contraseña son requeridos");
-            }
+            if (string.IsNullOrWhiteSpace(login.nombre_usuario) || string.IsNullOrWhiteSpace(login.password))
+                return BadRequest("Debe ingresar usuario y contraseña.");
 
-            // Buscar usuario por nombre de usuario
             var usuario = await _context.Usuario
-                .FirstOrDefaultAsync(u => u.nombre_usuario == login.nombre_usuario);
+                .FirstOrDefaultAsync(u => u.nombre == login.nombre_usuario);
 
             if (usuario == null)
-            {
-                return Unauthorized("Usuario no encontrado");
-            }
+                return Unauthorized("Usuario no encontrado.");
 
-            // Verificar contraseña (comparar el hash)
             if (!BCrypt.Net.BCrypt.Verify(login.password, usuario.password))
-            {
-                return Unauthorized("Contraseña incorrecta");
-            }
+                return Unauthorized("Contraseña incorrecta.");
 
-            // Login exitoso
             return Ok(new
             {
                 mensaje = "Login exitoso",
-                id = usuario.id_usuario,
-                nombre_usuario = usuario.nombre_usuario,
-                email_usuario = usuario.email_usuario,
+                id_usuario = usuario.id_usuario,
+                nombre = usuario.nombre,
+                email = usuario.email,
                 tipo_usuario = usuario.tipo_usuario,
                 cedula_pasaporte = usuario.cedula_pasaporte
             });
         }
 
-        // =======================
-        // POST: api/Usuarios/Registrar
-        // =======================
+        // ==========================================================
+        // POST: api/Usuarios/registrar
+        // ==========================================================
         [HttpPost("registrar")]
-        public async Task<ActionResult<Usuario>> Registrar([FromBody] Usuario usuario)
+        public async Task<IActionResult> Registrar([FromBody] Usuario usuario)
         {
-            // Validaciones básicas
-            if (string.IsNullOrEmpty(usuario.nombre_usuario) || string.IsNullOrEmpty(usuario.password))
-            {
-                return BadRequest("Nombre de usuario y contraseña son requeridos");
-            }
+            if (string.IsNullOrWhiteSpace(usuario.nombre) || string.IsNullOrWhiteSpace(usuario.password))
+                return BadRequest("Debe ingresar nombre y contraseña.");
 
-            // Validar unicidad de nombre de usuario
-            if (await _context.Usuario.AnyAsync(u => u.nombre_usuario == usuario.nombre_usuario))
-            {
-                return BadRequest("El nombre de usuario ya está registrado");
-            }
+            if (await _context.Usuario.AnyAsync(u => u.nombre == usuario.nombre))
+                return BadRequest("El nombre de usuario ya está registrado.");
 
-            // Validar unicidad de email si se proporciona
-            if (!string.IsNullOrEmpty(usuario.email_usuario) &&
-                await _context.Usuario.AnyAsync(u => u.email_usuario == usuario.email_usuario))
-            {
-                return BadRequest("El email ya está registrado");
-            }
+            if (!string.IsNullOrWhiteSpace(usuario.email) &&
+                await _context.Usuario.AnyAsync(u => u.email == usuario.email))
+                return BadRequest("El email ya está registrado.");
 
-            // Validar unicidad de cédula/pasaporte si se proporciona
-            if (!string.IsNullOrEmpty(usuario.cedula_pasaporte) &&
-                await _context.Usuario.AnyAsync(u => u.cedula_pasaporte == usuario.cedula_pasaporte))
-            {
-                return BadRequest("La cédula/pasaporte ya está registrada");
-            }
-
-            // Encriptar la contraseña antes de guardar
             usuario.password = BCrypt.Net.BCrypt.HashPassword(usuario.password);
 
-            // Asignar tipo de usuario por defecto si no se especifica
-            if (string.IsNullOrEmpty(usuario.tipo_usuario))
-            {
+            if (string.IsNullOrWhiteSpace(usuario.tipo_usuario))
                 usuario.tipo_usuario = "cliente";
-            }
 
-            // Guardar el usuario
             _context.Usuario.Add(usuario);
             await _context.SaveChangesAsync();
 
-            // No devolver la contraseña en la respuesta
-            usuario.password = null;
+            usuario.password = null; // No devolver contraseña
 
-            return CreatedAtAction("GetUsuario", new { id = usuario.id_usuario }, usuario);
+            return CreatedAtAction(nameof(GetUsuario), new { id = usuario.id_usuario }, usuario);
         }
 
-        // =======================
+        // ==========================================================
         // GET: api/Usuarios
-        // =======================
+        // ==========================================================
         [HttpGet]
-        public async Task<ActionResult<IEnumerable<Usuario>>> GetUsuarios()
+        public async Task<IEnumerable<Usuario>> GetUsuarios()
         {
-            var usuarios = await _context.Usuario.ToListAsync();
-
-            // No devolver contraseñas en la lista
-            usuarios.ForEach(u => u.password = null);
-
-            return usuarios;
+            var lista = await _context.Usuario.ToListAsync();
+            lista.ForEach(u => u.password = null);
+            return lista;
         }
 
-        // =======================
-        // GET: api/Usuarios/5
-        // =======================
+        // ==========================================================
+        // GET: api/Usuarios/{id}
+        // ==========================================================
         [HttpGet("{id}")]
-        public async Task<ActionResult<Usuario>> GetUsuario(int id)
+        public async Task<IActionResult> GetUsuario(int id)
         {
-            var usuario = await _context.Usuario
-                .FirstOrDefaultAsync(u => u.id_usuario == id);
+            var usuario = await _context.Usuario.FindAsync(id);
 
             if (usuario == null)
-                return NotFound();
+                return NotFound("Usuario no encontrado.");
 
-            // No devolver la contraseña
             usuario.password = null;
-
-            return usuario;
+            return Ok(usuario);
         }
 
-        // =======================
-        // POST: api/Usuarios (Mantener para compatibilidad)
-        // =======================
-        [HttpPost]
-        public async Task<ActionResult<Usuario>> PostUsuario([FromBody] Usuario usuario)
-        {
-            // Usar el método Registrar en su lugar
-            return await Registrar(usuario);
-        }
-
-        // =======================
-        // PUT: api/Usuarios/5
-        // =======================
+        // ==========================================================
+        // PUT: api/Usuarios/{id}
+        // ==========================================================
         [HttpPut("{id}")]
-        public async Task<IActionResult> PutUsuario(int id, Usuario usuario)
+        public async Task<IActionResult> PutUsuario(int id, Usuario datos)
         {
-            if (id != usuario.id_usuario)
-                return BadRequest("El ID no coincide.");
+            var usuario = await _context.Usuario.FindAsync(id);
 
-            // Verificar que el usuario existe
-            var usuarioExistente = await _context.Usuario.FindAsync(id);
-            if (usuarioExistente == null)
-                return NotFound();
+            if (usuario == null)
+                return NotFound("Usuario no encontrado.");
 
-            // Validar unicidad al actualizar
-            if (!string.IsNullOrEmpty(usuario.email_usuario) &&
-                await _context.Usuario.AnyAsync(u => u.email_usuario == usuario.email_usuario && u.id_usuario != id))
-                return BadRequest("El email ya está registrado por otro usuario.");
+            // Validar email único SOLO si lo envían
+            if (!string.IsNullOrWhiteSpace(datos.email) &&
+                await _context.Usuario.AnyAsync(u => u.email == datos.email && u.id_usuario != id))
+                return BadRequest("El email ya está en uso.");
 
-            if (!string.IsNullOrEmpty(usuario.cedula_pasaporte) &&
-                await _context.Usuario.AnyAsync(u => u.cedula_pasaporte == usuario.cedula_pasaporte && u.id_usuario != id))
-                return BadRequest("La cédula/pasaporte ya está registrada por otro usuario.");
+            // 🔹 ACTUALIZAR SOLO LO QUE VIENE (NO SOBREESCRIBIR NULL)
+            usuario.nombre = string.IsNullOrWhiteSpace(datos.nombre) ? usuario.nombre : datos.nombre;
+            usuario.email = string.IsNullOrWhiteSpace(datos.email) ? usuario.email : datos.email;
+            usuario.cedula_pasaporte = string.IsNullOrWhiteSpace(datos.cedula_pasaporte)
+                                        ? usuario.cedula_pasaporte
+                                        : datos.cedula_pasaporte;
 
-            // Si se actualiza la contraseña, encriptarla
-            if (!string.IsNullOrEmpty(usuario.password) && usuario.password != usuarioExistente.password)
-            {
-                usuario.password = BCrypt.Net.BCrypt.HashPassword(usuario.password);
-            }
-            else
-            {
-                // Mantener la contraseña actual si no se cambia
-                usuario.password = usuarioExistente.password;
-            }
+            // Si no envía edad → mantener
+            usuario.edad = datos.edad == 0 ? usuario.edad : datos.edad;
 
-            // Mantener el tipo de usuario si no se especifica
-            if (string.IsNullOrEmpty(usuario.tipo_usuario))
-            {
-                usuario.tipo_usuario = usuarioExistente.tipo_usuario;
-            }
+            // 🔹 CONTRASEÑA SOLO SI ENVÍAN UNA NUEVA
+            if (!string.IsNullOrWhiteSpace(datos.password))
+                usuario.password = BCrypt.Net.BCrypt.HashPassword(datos.password);
 
-            // Actualizar usuario
-            _context.Entry(usuarioExistente).CurrentValues.SetValues(usuario);
+            // 🔹 MANTENER tipo_usuario SIEMPRE
+            usuario.tipo_usuario = usuario.tipo_usuario;
 
-            try
-            {
-                await _context.SaveChangesAsync();
-            }
-            catch (DbUpdateConcurrencyException)
-            {
-                if (!UsuarioExists(id))
-                    return NotFound();
-                else
-                    throw;
-            }
+            await _context.SaveChangesAsync();
 
             return NoContent();
         }
 
-        // =======================
-        // DELETE: api/Usuarios/5
-        // =======================
+
+        // ==========================================================
+        // DELETE: api/Usuarios/{id}
+        // ==========================================================
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteUsuario(int id)
         {
             var usuario = await _context.Usuario.FindAsync(id);
+
             if (usuario == null)
                 return NotFound();
 
@@ -220,11 +155,6 @@ namespace VivaPanamaApi.Controllers
             await _context.SaveChangesAsync();
 
             return NoContent();
-        }
-
-        private bool UsuarioExists(int id)
-        {
-            return _context.Usuario.Any(e => e.id_usuario == id);
         }
     }
 }

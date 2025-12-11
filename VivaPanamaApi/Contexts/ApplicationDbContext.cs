@@ -32,21 +32,18 @@ namespace VivaPanamaApi.Data
             modelBuilder.Entity<Usuario>().ToTable("usuario");
 
             modelBuilder.Entity<Usuario>()
-                .Property(u => u.nombre_usuario)
+                .Property(u => u.nombre)
                 .IsRequired();
 
-            modelBuilder.Entity<Usuario>()
-                .Property(u => u.password)
-                .IsRequired();
+           
 
             modelBuilder.Entity<Usuario>()
                 .Property(u => u.tipo_usuario)
-                .IsRequired()
                 .HasDefaultValue("cliente");
 
             
             modelBuilder.Entity<Usuario>()
-                .HasIndex(u => u.nombre_usuario)
+                .HasIndex(u => u.nombre)
                 .IsUnique();
 
             

@@ -111,7 +111,7 @@ namespace VivaPanamaApi.Controllers
                     c.puntuacion,
                     c.comentario,
                     c.fecha_calificacion,
-                    Usuario = new { c.usuario.nombre_usuario }
+                    Usuario = new { c.usuario.nombre }
                 })
                 .OrderByDescending(c => c.fecha_calificacion)
                 .Take(10)
