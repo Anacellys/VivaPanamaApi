@@ -11,7 +11,6 @@ namespace VivaPanamaApi.Models
         public string descripcion_restaurante { get; set; }
         public string tipo_cocina_restaurante { get; set; }
         public decimal? precio_promedio { get; set; }
-        public decimal? calificacion_promedio { get; set; }
         public TimeSpan? horario_apertura { get; set; }
         public TimeSpan? horario_cierre { get; set; }
 

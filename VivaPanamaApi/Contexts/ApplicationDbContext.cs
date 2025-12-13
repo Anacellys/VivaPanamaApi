@@ -94,7 +94,8 @@ namespace VivaPanamaApi.Data
                 .HasOne(a => a.Lugar)
                 .WithMany()
                 .HasForeignKey(a => a.id_lugar);
-
+            modelBuilder.Entity<imagen>()
+            .HasKey(i => i.id_foto);
         }
     }
 }

@@ -28,37 +28,25 @@ namespace VivaPanamaApi.Controllers
                 .Include(h => h.Lugar)
                 .AsQueryable();
 
-            // Aplicar filtros
             if (!string.IsNullOrEmpty(provincia))
-            {
                 query = query.Where(h => h.Lugar.provincia == provincia);
-            }
 
             if (precioMin.HasValue)
-            {
                 query = query.Where(h => h.precio_noche >= precioMin.Value);
-            }
 
             if (precioMax.HasValue)
-            {
                 query = query.Where(h => h.precio_noche <= precioMax.Value);
-            }
 
-            if (calificacionMin.HasValue)
-            {
-                query = query.Where(h => h.calificacion_promedio >= calificacionMin.Value);
-            }
 
             var hoteles = await query
                 .Select(h => new
                 {
                     h.id_hotel,
-                    h.nombre_hotel,
-                    h.descripcion_hotel,
+                    // la tabla tiene "nombre"; se expone como nombre_hotel para el front
+                    nombre_hotel = h.nombre,
+                    // estos campos pueden no existir en la tabla, pero se exponen igual si están en el modelo
                     h.precio_noche,
-                    h.calificacion_promedio,
-                    h.servicios_hotel,
-                    h.telefono_hotel,
+                    servicios_hotel = h.servicios,
                     Lugar = new
                     {
                         h.Lugar.id_lugar,
@@ -66,8 +54,8 @@ namespace VivaPanamaApi.Controllers
                         h.Lugar.provincia
                     },
                     Imagenes = _context.imagen
-                        .Where(i => i.tipo_entidad == "hotel" && i.id_entidad == h.id_hotel && i.es_principal)
-                        .Select(i => new { i.url_imagen, i.descripcion_imagen })
+                        .Where(i => i.id_lugar == h.id_lugar)
+                        .Select(i => new { url = i.url, descripcion = i.descripcion })
                         .FirstOrDefault()
                 })
                 .ToListAsync();
@@ -75,7 +63,7 @@ namespace VivaPanamaApi.Controllers
             return Ok(hoteles);
         }
 
-        // GET: api/Hoteles/5 - Hotel específico con TODA la info
+        // GET: api/Hoteles/5 - Hotel específico
         [HttpGet("{id}")]
         public async Task<ActionResult<object>> GetHotel(int id)
         {
@@ -84,24 +72,18 @@ namespace VivaPanamaApi.Controllers
                 .FirstOrDefaultAsync(h => h.id_hotel == id);
 
             if (hotel == null)
-            {
                 return NotFound();
-            }
 
-            // Obtener todas las imágenes del hotel
             var imagenes = await _context.imagen
-                .Where(i => i.tipo_entidad == "hotel" && i.id_entidad == id)
-                .OrderByDescending(i => i.es_principal)
+                .Where(i => i.id_lugar == hotel.id_lugar)
                 .Select(i => new
                 {
-                    i.id_imagen,
-                    i.url_imagen,
-                    i.descripcion_imagen,
-                    i.es_principal
+                    id_imagen = i.id_foto,
+                    i.url,
+                    i.descripcion
                 })
                 .ToListAsync();
 
-            // Obtener calificaciones del hotel
             var calificaciones = await _context.calificacion
                 .Where(c => c.tipo_entidad == "hotel" && c.id_entidad == id)
                 .Include(c => c.usuario)
@@ -117,12 +99,10 @@ namespace VivaPanamaApi.Controllers
                 .Take(10)
                 .ToListAsync();
 
-            // Calcular promedio de calificaciones
             var promedioCalificaciones = calificaciones.Any()
                 ? calificaciones.Average(c => c.puntuacion)
                 : 0;
 
-            // Hoteles similares (misma provincia)
             var hotelesSimilares = await _context.hotel
                 .Include(h => h.Lugar)
                 .Where(h => h.Lugar.provincia == hotel.Lugar.provincia && h.id_hotel != id)
@@ -130,12 +110,11 @@ namespace VivaPanamaApi.Controllers
                 .Select(h => new
                 {
                     h.id_hotel,
-                    h.nombre_hotel,
+                    nombre_hotel = h.nombre,
                     h.precio_noche,
-                    h.calificacion_promedio,
                     Imagen = _context.imagen
-                        .Where(i => i.tipo_entidad == "hotel" && i.id_entidad == h.id_hotel && i.es_principal)
-                        .Select(i => i.url_imagen)
+                        .Where(i => i.id_lugar == h.id_lugar)
+                        .Select(i => i.url)
                         .FirstOrDefault()
                 })
                 .ToListAsync();
@@ -145,12 +124,9 @@ namespace VivaPanamaApi.Controllers
                 Hotel = new
                 {
                     hotel.id_hotel,
-                    hotel.nombre_hotel,
-                    hotel.descripcion_hotel,
+                    nombre_hotel = hotel.nombre,
                     hotel.precio_noche,
-                    hotel.calificacion_promedio,
-                    hotel.servicios_hotel,
-                    hotel.telefono_hotel,
+                    servicios_hotel = hotel.servicios,
                     Lugar = new
                     {
                         hotel.Lugar.id_lugar,
@@ -171,11 +147,10 @@ namespace VivaPanamaApi.Controllers
             });
         }
 
-        // POST: api/Hoteles - Crear nuevo hotel
+        // POST: api/Hoteles
         [HttpPost]
         public async Task<ActionResult<Hotel>> PostHotel(Hotel hotel)
         {
-            // Validar que el lugar existe
             var lugarExiste = await _context.lugar.AnyAsync(l => l.id_lugar == hotel.id_lugar);
             if (!lugarExiste)
             {
@@ -190,14 +165,12 @@ namespace VivaPanamaApi.Controllers
             return CreatedAtAction("GetHotel", new { id = hotel.id_hotel }, hotel);
         }
 
-        // PUT: api/Hoteles/5 - Actualizar hotel
+        // PUT: api/Hoteles/5
         [HttpPut("{id}")]
         public async Task<IActionResult> PutHotel(int id, Hotel hotel)
         {
             if (id != hotel.id_hotel)
-            {
                 return BadRequest();
-            }
 
             _context.Entry(hotel).State = EntityState.Modified;
 
@@ -208,13 +181,9 @@ namespace VivaPanamaApi.Controllers
             catch (DbUpdateConcurrencyException)
             {
                 if (!HotelExists(id))
-                {
                     return NotFound();
-                }
                 else
-                {
                     throw;
-                }
             }
 
             return NoContent();
@@ -226,9 +195,7 @@ namespace VivaPanamaApi.Controllers
         {
             var hotel = await _context.hotel.FindAsync(id);
             if (hotel == null)
-            {
                 return NotFound();
-            }
 
             _context.hotel.Remove(hotel);
             await _context.SaveChangesAsync();
@@ -241,30 +208,26 @@ namespace VivaPanamaApi.Controllers
         public async Task<ActionResult<IEnumerable<object>>> BuscarHoteles([FromQuery] string q)
         {
             if (string.IsNullOrWhiteSpace(q))
-            {
                 return BadRequest("Término de búsqueda requerido");
-            }
 
             var hoteles = await _context.hotel
                 .Include(h => h.Lugar)
-                .Where(h => h.nombre_hotel.Contains(q) ||
-                           h.descripcion_hotel.Contains(q) ||
-                           h.Lugar.nombre.Contains(q) ||
-                           h.Lugar.provincia.Contains(q))
+                .Where(h => h.nombre.Contains(q) ||
+                            h.Lugar.nombre.Contains(q) ||
+                            h.Lugar.provincia.Contains(q))
                 .Select(h => new
                 {
                     h.id_hotel,
-                    h.nombre_hotel,
+                    nombre_hotel = h.nombre,
                     h.precio_noche,
-                    h.calificacion_promedio,
                     Lugar = new
                     {
                         h.Lugar.nombre,
                         h.Lugar.provincia
                     },
                     Imagen = _context.imagen
-                        .Where(i => i.tipo_entidad == "hotel" && i.id_entidad == h.id_hotel && i.es_principal)
-                        .Select(i => i.url_imagen)
+                        .Where(i => i.id_lugar == h.id_lugar)
+                        .Select(i => i.url)
                         .FirstOrDefault()
                 })
                 .Take(10)
@@ -285,14 +248,13 @@ namespace VivaPanamaApi.Controllers
                 .Select(h => new
                 {
                     h.id_hotel,
-                    h.nombre_hotel,
+                    nombre_hotel = h.nombre,
                     h.precio_noche,
-                    h.calificacion_promedio,
-                    Descuento = h.precio_noche * 0.8m, // 20% de descuento simulado
+                    Descuento = h.precio_noche * 0.8m,
                     Lugar = h.Lugar.provincia,
                     Imagen = _context.imagen
-                        .Where(i => i.tipo_entidad == "hotel" && i.id_entidad == h.id_hotel && i.es_principal)
-                        .Select(i => i.url_imagen)
+                        .Where(i => i.id_lugar == h.id_lugar)
+                        .Select(i => i.url)
                         .FirstOrDefault()
                 })
                 .ToListAsync();

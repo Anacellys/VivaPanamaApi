@@ -16,48 +16,32 @@ namespace VivaPanamaApi.Controllers
             _context = context;
         }
 
-        // ==================== CRUD BÁSICO ====================
-
-        // GET: api/Restaurantes
+        // ==================== GET GENERAL ====================
         [HttpGet]
-        public async Task<ActionResult<IEnumerable<object>>> GetRestaurantes(
+        public async Task<IActionResult> GetRestaurantes(
             [FromQuery] string provincia = null,
             [FromQuery] string tipoCocina = null,
             [FromQuery] decimal? precioMin = null,
-            [FromQuery] decimal? precioMax = null,
-            [FromQuery] decimal? calificacionMin = null)
+            [FromQuery] decimal? precioMax = null)
         {
             var query = _context.restaurante
                 .Include(r => r.Lugar)
                 .AsQueryable();
 
-            // Aplicar filtros
             if (!string.IsNullOrEmpty(provincia))
-            {
                 query = query.Where(r => r.Lugar.provincia == provincia);
-            }
 
             if (!string.IsNullOrEmpty(tipoCocina))
-            {
                 query = query.Where(r => r.tipo_cocina_restaurante.Contains(tipoCocina));
-            }
 
             if (precioMin.HasValue)
-            {
-                query = query.Where(r => r.precio_promedio >= precioMin.Value);
-            }
+                query = query.Where(r => r.precio_promedio >= precioMin);
 
             if (precioMax.HasValue)
-            {
-                query = query.Where(r => r.precio_promedio <= precioMax.Value);
-            }
-
-            if (calificacionMin.HasValue)
-            {
-                query = query.Where(r => r.calificacion_promedio >= calificacionMin.Value);
-            }
+                query = query.Where(r => r.precio_promedio <= precioMax);
 
             var restaurantes = await query
+                .OrderBy(r => r.nombre_restaurante)
                 .Select(r => new
                 {
                     r.id_restaurante,
@@ -65,7 +49,6 @@ namespace VivaPanamaApi.Controllers
                     r.descripcion_restaurante,
                     r.tipo_cocina_restaurante,
                     r.precio_promedio,
-                    r.calificacion_promedio,
                     r.horario_apertura,
                     r.horario_cierre,
                     Lugar = new
@@ -75,77 +58,39 @@ namespace VivaPanamaApi.Controllers
                         r.Lugar.provincia
                     },
                     ImagenPrincipal = _context.imagen
-                        .Where(i => i.tipo_entidad == "restaurante" &&
-                                   i.id_entidad == r.id_restaurante &&
-                                   i.es_principal)
-                        .Select(i => new { i.url_imagen, i.descripcion_imagen })
-                        .FirstOrDefault(),
-                    TotalCalificaciones = _context.calificacion
-                        .Count(c => c.tipo_entidad == "restaurante" && c.id_entidad == r.id_restaurante)
+                        .Where(i => i.id_lugar == r.id_lugar)
+                        .Select(i => new { i.url, i.descripcion })
+                        .FirstOrDefault()
                 })
-                .OrderBy(r => r.nombre_restaurante)
                 .ToListAsync();
 
             return Ok(new
             {
-                Total_Restaurantes = restaurantes.Count,
-                Filtros_Aplicados = new { provincia, tipoCocina, precioMin, precioMax, calificacionMin },
+                Total = restaurantes.Count,
                 Restaurantes = restaurantes
             });
         }
 
-        // GET: api/Restaurantes/5 - Restaurante completo con todos los detalles
+        // ==================== GET POR ID ====================
         [HttpGet("{id}")]
-        public async Task<ActionResult<object>> GetRestaurante(int id)
+        public async Task<IActionResult> GetRestaurante(int id)
         {
             var restaurante = await _context.restaurante
                 .Include(r => r.Lugar)
                 .FirstOrDefaultAsync(r => r.id_restaurante == id);
 
             if (restaurante == null)
-            {
-                return NotFound($"Restaurante con ID {id} no encontrado");
-            }
+                return NotFound("Restaurante no encontrado");
 
-            // Obtener todas las imágenes
             var imagenes = await _context.imagen
-                .Where(i => i.tipo_entidad == "restaurante" && i.id_entidad == id)
-                .OrderByDescending(i => i.es_principal)
+                .Where(i => i.id_lugar == restaurante.id_lugar)
                 .Select(i => new
                 {
-                    i.id_imagen,
-                    i.url_imagen,
-                    i.descripcion_imagen,
-                    i.es_principal,
-                    i.fecha_subida
+                    i.id_foto,
+                    i.url,
+                    i.descripcion
                 })
                 .ToListAsync();
-
-            // Obtener calificaciones
-            var calificaciones = await _context.calificacion    
-                .Where(c => c.tipo_entidad == "restaurante" && c.id_entidad == id)
-                .Include(c => c.usuario)
-                .Select(c => new
-                {
-                    c.id_calificacion,
-                    c.puntuacion,
-                    c.comentario,
-                    c.fecha_calificacion,
-                    Usuario = new { c.usuario.nombre }
-                })
-                .OrderByDescending(c => c.fecha_calificacion)
-                .Take(10)
-                .ToListAsync();
-
-            // Calcular estadísticas
-            var promedioCalificaciones = calificaciones.Any()
-                ? calificaciones.Average(c => c.puntuacion)
-                : 0;
-
-            // Obtener horario formateado
-            var horario = restaurante.horario_apertura.HasValue && restaurante.horario_cierre.HasValue
-                ? $"{restaurante.horario_apertura:hh\\:mm} - {restaurante.horario_cierre:hh\\:mm}"
-                : "Horario no especificado";
 
             return Ok(new
             {
@@ -156,207 +101,66 @@ namespace VivaPanamaApi.Controllers
                     restaurante.descripcion_restaurante,
                     restaurante.tipo_cocina_restaurante,
                     restaurante.precio_promedio,
-                    restaurante.calificacion_promedio,
-                    Horario = horario,
-                    Horario_Apertura = restaurante.horario_apertura,
-                    Horario_Cierre = restaurante.horario_cierre,
+                    Horario = restaurante.horario_apertura.HasValue && restaurante.horario_cierre.HasValue
+                        ? $"{restaurante.horario_apertura:hh\\:mm} - {restaurante.horario_cierre:hh\\:mm}"
+                        : "No especificado",
                     Lugar = new
                     {
                         restaurante.Lugar.id_lugar,
                         restaurante.Lugar.nombre,
-                        restaurante.Lugar.descripcion,
                         restaurante.Lugar.provincia
                     }
                 },
-                Imagenes = imagenes,
-                Calificaciones = new
-                {
-                    Lista = calificaciones,
-                    Promedio = Math.Round(promedioCalificaciones, 1),
-                    Total = calificaciones.Count,
-                    Distribucion = Enumerable.Range(1, 5)
-                        .Select(i => new
-                        {
-                            Estrellas = i,
-                            Cantidad = calificaciones.Count(c => c.puntuacion == i)
-                        })
-                        .ToList()
-                }
+                Imagenes = imagenes
             });
         }
 
-        // POST: api/Restaurantes
+        // ==================== POST ====================
         [HttpPost]
-        public async Task<ActionResult<Restaurante>> PostRestaurante(Restaurante restaurante)
+        public async Task<IActionResult> PostRestaurante(Restaurante restaurante)
         {
-            // Validaciones
-            if (string.IsNullOrWhiteSpace(restaurante.nombre_restaurante))
-            {
-                return BadRequest("El nombre del restaurante es requerido");
-            }
-
-            if (string.IsNullOrWhiteSpace(restaurante.tipo_cocina_restaurante))
-            {
-                return BadRequest("El tipo de cocina es requerido");
-            }
-
-            // Validar que el lugar existe
-            var lugarExiste = await _context.lugar.AnyAsync(l => l.id_lugar == restaurante.id_lugar);
-            if (!lugarExiste)
-            {
-                return BadRequest("El lugar especificado no existe");
-            }
-
-            // Validar horarios si están presentes
-            if (restaurante.horario_apertura.HasValue && restaurante.horario_cierre.HasValue)
-            {
-                if (restaurante.horario_apertura >= restaurante.horario_cierre)
-                {
-                    return BadRequest("El horario de apertura debe ser anterior al de cierre");
-                }
-            }
-
-            // Establecer valores por defecto
-            restaurante.calificacion_promedio ??= 0;
-            restaurante.precio_promedio ??= 0;
-
             _context.restaurante.Add(restaurante);
             await _context.SaveChangesAsync();
-
-            return CreatedAtAction("GetRestaurante",
-                new { id = restaurante.id_restaurante },
-                new
-                {
-                    Mensaje = "Restaurante creado exitosamente",
-                    Restaurante = restaurante
-                });
+            return Ok(restaurante);
         }
 
-        // PUT: api/Restaurantes/5
+        // ==================== PUT ====================
         [HttpPut("{id}")]
         public async Task<IActionResult> PutRestaurante(int id, Restaurante restaurante)
         {
             if (id != restaurante.id_restaurante)
-            {
-                return BadRequest("El ID de la ruta no coincide con el ID del restaurante");
-            }
+                return BadRequest("ID incorrecto");
 
-            var existente = await _context.restaurante.FindAsync(id);
-            if (existente == null)
-            {
-                return NotFound($"Restaurante con ID {id} no encontrado");
-            }
-
-            // Validar horarios
-            if (restaurante.horario_apertura.HasValue && restaurante.horario_cierre.HasValue)
-            {
-                if (restaurante.horario_apertura >= restaurante.horario_cierre)
-                {
-                    return BadRequest("El horario de apertura debe ser anterior al de cierre");
-                }
-            }
-
-            // Actualizar propiedades
-            existente.nombre_restaurante = restaurante.nombre_restaurante;
-            existente.descripcion_restaurante = restaurante.descripcion_restaurante;
-            existente.tipo_cocina_restaurante = restaurante.tipo_cocina_restaurante;
-            existente.precio_promedio = restaurante.precio_promedio;
-            existente.horario_apertura = restaurante.horario_apertura;
-            existente.horario_cierre = restaurante.horario_cierre;
-
-            // Solo actualizar calificación si viene (podría ser un campo calculado)
-            if (restaurante.calificacion_promedio.HasValue)
-            {
-                existente.calificacion_promedio = restaurante.calificacion_promedio;
-            }
-
-            try
-            {
-                await _context.SaveChangesAsync();
-                return Ok(new
-                {
-                    Mensaje = "Restaurante actualizado exitosamente",
-                    Restaurante = existente
-                });
-            }
-            catch (DbUpdateConcurrencyException)
-            {
-                if (!RestauranteExists(id))
-                {
-                    return NotFound("El restaurante ya no existe");
-                }
-                throw;
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, $"Error al actualizar el restaurante: {ex.Message}");
-            }
+            _context.Entry(restaurante).State = EntityState.Modified;
+            await _context.SaveChangesAsync();
+            return Ok(restaurante);
         }
 
-        // DELETE: api/Restaurantes/5
+        // ==================== DELETE ====================
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteRestaurante(int id)
         {
-            var restaurante = await _context.restaurante
-                .Include(r => r.Lugar)
-                .FirstOrDefaultAsync(r => r.id_restaurante == id);
-
+            var restaurante = await _context.restaurante.FindAsync(id);
             if (restaurante == null)
-            {
-                return NotFound($"Restaurante con ID {id} no encontrado");
-            }
+                return NotFound("Restaurante no encontrado");
 
-            // Verificar si tiene calificaciones asociadas
-            var tieneCalificaciones = await _context.calificacion
-                .AnyAsync(c => c.tipo_entidad == "restaurante" && c.id_entidad == id);
-
-            if (tieneCalificaciones)
-            {
-                return BadRequest(new
-                {
-                    Mensaje = "No se puede eliminar el restaurante porque tiene calificaciones asociadas",
-                    Accion_Recomendada = "Considere archivar en lugar de eliminar"
-                });
-            }
-
-            // Eliminar imágenes asociadas (opcional)
             var imagenes = await _context.imagen
-                .Where(i => i.tipo_entidad == "restaurante" && i.id_entidad == id)
+                .Where(i => i.id_lugar == restaurante.id_lugar)
                 .ToListAsync();
 
             if (imagenes.Any())
-            {
                 _context.imagen.RemoveRange(imagenes);
-            }
 
             _context.restaurante.Remove(restaurante);
             await _context.SaveChangesAsync();
 
-            return Ok(new
-            {
-                Mensaje = "Restaurante eliminado exitosamente",
-                Restaurante_Eliminado = new
-                {
-                    restaurante.id_restaurante,
-                    restaurante.nombre_restaurante,
-                    Lugar = restaurante.Lugar.nombre
-                },
-                Imagenes_Eliminadas = imagenes.Count
-            });
+            return Ok("Restaurante eliminado correctamente");
         }
 
-        // ==================== ENDPOINTS ESPECÍFICOS ====================
-
-        // GET: api/Restaurantes/por-lugar/5
+        // ==================== POR LUGAR ====================
         [HttpGet("por-lugar/{idLugar}")]
-        public async Task<ActionResult<object>> GetRestaurantesPorLugar(int idLugar)
+        public async Task<IActionResult> GetRestaurantesPorLugar(int idLugar)
         {
-            var lugar = await _context.lugar.FindAsync(idLugar);
-            if (lugar == null)
-            {
-                return NotFound($"Lugar con ID {idLugar} no encontrado");
-            }
-
             var restaurantes = await _context.restaurante
                 .Where(r => r.id_lugar == idLugar)
                 .Select(r => new
@@ -364,207 +168,12 @@ namespace VivaPanamaApi.Controllers
                     r.id_restaurante,
                     r.nombre_restaurante,
                     r.tipo_cocina_restaurante,
-                    r.precio_promedio,
-                    r.calificacion_promedio,
-                    Horario = r.horario_apertura.HasValue && r.horario_cierre.HasValue
-                        ? $"{r.horario_apertura:hh\\:mm} - {r.horario_cierre:hh\\:mm}"
-                        : "No especificado",
-                    Imagen = _context.imagen
-                        .Where(i => i.tipo_entidad == "restaurante" &&
-                                   i.id_entidad == r.id_restaurante &&
-                                   i.es_principal)
-                        .Select(i => i.url_imagen)
-                        .FirstOrDefault(),
-                    TotalCalificaciones = _context.calificacion
-                        .Count(c => c.tipo_entidad == "restaurante" && c.id_entidad == r.id_restaurante)
+                    r.precio_promedio
                 })
                 .OrderBy(r => r.nombre_restaurante)
                 .ToListAsync();
 
-            return Ok(new
-            {
-                Lugar = new { lugar.id_lugar, lugar.nombre, lugar.provincia},
-                Total_Restaurantes = restaurantes.Count,
-                Restaurantes = restaurantes
-            });
-        }
-
-        // GET: api/Restaurantes/buscar?q=pizza
-        [HttpGet("buscar")]
-        public async Task<ActionResult<object>> BuscarRestaurantes([FromQuery] string q)
-        {
-            if (string.IsNullOrWhiteSpace(q))
-            {
-                return BadRequest("Término de búsqueda requerido");
-            }
-
-            var restaurantes = await _context.restaurante
-                .Include(r => r.Lugar)
-                .Where(r => r.nombre_restaurante.Contains(q) ||
-                           r.descripcion_restaurante.Contains(q) ||
-                           r.tipo_cocina_restaurante.Contains(q) ||
-                           r.Lugar.nombre.Contains(q))
-                .Select(r => new
-                {
-                    r.id_restaurante,
-                    r.nombre_restaurante,
-                    r.tipo_cocina_restaurante,
-                    r.precio_promedio,
-                    r.calificacion_promedio,
-                    Lugar = r.Lugar.nombre,
-                    Provincia = r.Lugar.provincia,
-                    Imagen = _context.imagen
-                        .Where(i => i.tipo_entidad == "restaurante" &&
-                                   i.id_entidad == r.id_restaurante &&
-                                   i.es_principal)
-                        .Select(i => i.url_imagen)
-                        .FirstOrDefault()
-                })
-                .Take(15)
-                .ToListAsync();
-
-            return Ok(new
-            {
-                Termino_Busqueda = q,
-                Resultados_Encontrados = restaurantes.Count,
-                Restaurantes = restaurantes
-            });
-        }
-
-        // GET: api/Restaurantes/tipo-cocina/italiana
-        [HttpGet("tipo-cocina/{tipoCocina}")]
-        public async Task<ActionResult<object>> GetRestaurantesPorTipoCocina(string tipoCocina)
-        {
-            var restaurantes = await _context.restaurante
-                .Include(r => r.Lugar)
-                .Where(r => r.tipo_cocina_restaurante.Contains(tipoCocina))
-                .Select(r => new
-                {
-                    r.id_restaurante,
-                    r.nombre_restaurante,
-                    r.tipo_cocina_restaurante,
-                    r.precio_promedio,
-                    r.calificacion_promedio,
-                    Lugar = new
-                    {
-                        r.Lugar.nombre,
-                        r.Lugar.provincia
-                    },
-                    Imagen = _context.imagen
-                        .Where(i => i.tipo_entidad == "restaurante" &&
-                                   i.id_entidad == r.id_restaurante &&
-                                   i.es_principal)
-                        .Select(i => i.url_imagen)
-                        .FirstOrDefault()
-                })
-                .OrderByDescending(r => r.calificacion_promedio)
-                .ToListAsync();
-
-            if (!restaurantes.Any())
-            {
-                return NotFound($"No se encontraron restaurantes de cocina '{tipoCocina}'");
-            }
-
-            return Ok(new
-            {
-                Tipo_Cocina = tipoCocina,
-                Total_Restaurantes = restaurantes.Count,
-                Restaurantes = restaurantes
-            });
-        }
-
-        
-
-
-        // GET: api/Restaurantes/mejor-calificados?limit=10
-        [HttpGet("mejor-calificados")]
-        public async Task<ActionResult<object>> GetRestaurantesMejorCalificados([FromQuery] int limit = 10)
-        {
-            var restaurantes = await _context.restaurante
-                .Include(r => r.Lugar)
-                .Where(r => r.calificacion_promedio > 0)
-                .OrderByDescending(r => r.calificacion_promedio)
-                .Take(limit)
-                .Select(r => new
-                {
-                    r.id_restaurante,
-                    r.nombre_restaurante,
-                    r.tipo_cocina_restaurante,
-                    r.precio_promedio,
-                    r.calificacion_promedio,
-                    Lugar = r.Lugar.nombre,
-                    Total_Resenas = _context.calificacion
-                        .Count(c => c.tipo_entidad == "restaurante" && c.id_entidad == r.id_restaurante),
-                    Imagen = _context.imagen
-                        .Where(i => i.tipo_entidad == "restaurante" &&
-                                   i.id_entidad == r.id_restaurante &&
-                                   i.es_principal)
-                        .Select(i => i.url_imagen)
-                        .FirstOrDefault()
-                })
-                .ToListAsync();
-
-            return Ok(new
-            {
-                Total = restaurantes.Count,
-                Restaurantes_Mejor_Calificados = restaurantes
-            });
-        }
-
-        // GET: api/Restaurantes/rango-precio?min=10&max=50
-        [HttpGet("rango-precio")]
-        public async Task<ActionResult<object>> GetRestaurantesPorRangoPrecio(
-            [FromQuery] decimal min = 0,
-            [FromQuery] decimal max = 100)
-        {
-            if (min > max)
-            {
-                return BadRequest("El precio mínimo no puede ser mayor al máximo");
-            }
-
-            var restaurantes = await _context.restaurante
-                .Include(r => r.Lugar)
-                .Where(r => r.precio_promedio >= min && r.precio_promedio <= max)
-                .OrderBy(r => r.precio_promedio)
-                .Select(r => new
-                {
-                    r.id_restaurante,
-                    r.nombre_restaurante,
-                    r.tipo_cocina_restaurante,
-                    r.precio_promedio,
-                    r.calificacion_promedio,
-                    Nivel_Precio = r.precio_promedio < 20 ? "Económico" :
-                                  r.precio_promedio < 50 ? "Moderado" : "Alto",
-                    Lugar = r.Lugar.nombre,
-                    Imagen = _context.imagen
-                        .Where(i => i.tipo_entidad == "restaurante" &&
-                                   i.id_entidad == r.id_restaurante &&
-                                   i.es_principal)
-                        .Select(i => i.url_imagen)
-                        .FirstOrDefault()
-                })
-                .ToListAsync();
-
-            return Ok(new
-            {
-                Rango = $"{min:C} - {max:C}",
-                Total_Restaurantes = restaurantes.Count,
-                Por_Nivel_Precio = restaurantes
-                    .GroupBy(r => r.Nivel_Precio)
-                    .Select(g => new
-                    {
-                        Nivel = g.Key,
-                        Cantidad = g.Count(),
-                        Precio_Promedio = g.Average(r => r.precio_promedio)
-                    })
-                    .ToList(),
-                Restaurantes = restaurantes
-            });
-        }
-
-        private bool RestauranteExists(int id)
-        {
-            return _context.restaurante.Any(e => e.id_restaurante == id);
+            return Ok(restaurantes);
         }
     }
 }
